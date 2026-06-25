@@ -10,9 +10,8 @@ const intents = new Map<number, Intent>();
 // registered solver public keys (secp256k1 hex). makers seal reveals to these.
 const solvers = new Set<string>();
 
-// sealed-bid auction per intent. during the bid window solvers post only a
-// commitment to their price; the relay (and other solvers) cannot see bids.
-// after the window solvers reveal, and the highest output for the maker wins.
+// sealed-bid auction: during the window solvers post only a commitment to their
+// price, then reveal; highest output for the maker wins.
 type Bid = { commit: string; amountOut?: string };
 type Auction = { firstBidAt: number; bids: Map<string, Bid> };
 const auctions = new Map<number, Auction>();
@@ -21,7 +20,6 @@ function bidCommit(amountOut: string, salt: string): string {
   return createHash("sha256").update(`${amountOut}:${salt}`).digest("hex");
 }
 
-// winner is decided only after the bid window closes, from revealed bids.
 function auctionState(id: number) {
   const a = auctions.get(id);
   if (!a || a.bids.size === 0) return { status: "no-bids" as const };
@@ -42,8 +40,7 @@ function openIntents() {
   return [...intents.values()].filter((i) => i.status === "open");
 }
 
-// public view of an intent: the reveal stays hidden, observers see only the
-// commitment and the escrow size.
+// observers see only the commitment and escrow size, never the order
 function publicView(i: Intent) {
   return {
     id: i.id,
@@ -64,7 +61,6 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "obscura-relay", open: openIntents().length, solvers: solvers.size });
 });
 
-// solvers register the public key makers should seal reveals to.
 app.post("/solvers", (req, res) => {
   const pub = String(req.body?.pub ?? "");
   if (!/^[0-9a-fA-F]{66,130}$/.test(pub)) return res.status(400).json({ error: "bad pubkey" });
@@ -76,9 +72,7 @@ app.get("/solvers", (_req, res) => {
   res.json({ solvers: [...solvers] });
 });
 
-// maker posts an intent keyed by its on-chain id. the reveal arrives already
-// sealed to each registered solver; the relay stores only ciphertext and the
-// public commitment, never the plaintext order.
+// keyed by on-chain id. reveal arrives pre-sealed; we store only ciphertext.
 app.post("/intents", (req, res) => {
   const id = Number(req.body?.id);
   const seals = req.body?.seals;
@@ -104,7 +98,6 @@ app.post("/intents", (req, res) => {
   res.json({ id, commit });
 });
 
-// auction: solver posts a sealed bid (commitment only) during the window.
 app.post("/intents/:id/bid", (req, res) => {
   const id = Number(req.params.id);
   const i = intents.get(id);
@@ -118,7 +111,6 @@ app.post("/intents/:id/bid", (req, res) => {
   res.json({ ok: true, bids: a.bids.size });
 });
 
-// auction: solver reveals its bid; the relay verifies it matches the commitment.
 app.post("/intents/:id/open", (req, res) => {
   const a = auctions.get(Number(req.params.id));
   if (!a) return res.status(404).json({ error: "no auction" });
@@ -136,7 +128,6 @@ app.get("/intents/:id/auction", (req, res) => {
   res.json(auctionState(Number(req.params.id)));
 });
 
-// solver reports it settled an intent on-chain so the relay stops offering it.
 app.post("/intents/:id/filled", (req, res) => {
   const i = intents.get(Number(req.params.id));
   if (!i) return res.status(404).json({ error: "unknown intent" });
@@ -144,13 +135,11 @@ app.post("/intents/:id/filled", (req, res) => {
   res.json({ ok: true });
 });
 
-// public mempool: open intents, reveal hidden.
 app.get("/intents", (_req, res) => {
   res.json({ intents: openIntents().map(publicView) });
 });
 
-// solver-facing: fetch the sealed reveal for a specific solver. the relay hands
-// back only the ciphertext sealed to that solver's key; it cannot read it.
+// hands back only the ciphertext sealed to this solver's key
 app.get("/intents/:id/reveal", (req, res) => {
   const i = intents.get(Number(req.params.id));
   if (!i || i.status !== "open") {

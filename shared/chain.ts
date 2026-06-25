@@ -1,5 +1,4 @@
-// On-chain integration against the local devnet. Wraps @stacks/transactions so
-// the maker can escrow (create-intent) and a solver can settle (fill-intent).
+// devnet contract calls via @stacks/transactions.
 
 import {
   makeContractCall,

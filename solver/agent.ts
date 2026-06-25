@@ -1,7 +1,5 @@
-// Obscura solver agent. Polls the relay for open intents, decrypts the reveal
-// sealed to its key, verifies it hashes to the public commitment, competes in
-// the sealed-bid auction (deliver min-out plus a margin), and if it wins settles
-// the intent on-chain with fill-intent.
+// polls the relay, decrypts intents sealed to its key, bids in the sealed-bid
+// auction, and settles on-chain if it wins.
 
 import { createHash, randomBytes } from "node:crypto";
 import { commitHash, type Reveal } from "../shared/intent.ts";
@@ -32,14 +30,12 @@ function post(path: string, body: unknown) {
   });
 }
 
-// ECIES keypair makers seal reveals to. the relay never learns the private key.
 const enc = genSolverKey();
 
 const handled = new Set<number>();
 
 type Public = { id: number; commit: string };
 
-// fetch this solver's sealed reveal and decrypt it locally.
 async function fetchReveal(id: number): Promise<Reveal | null> {
   const r = await fetch(`${RELAY}/intents/${id}/reveal?solver=${enc.pub}`);
   if (!r.ok) return null;
@@ -110,7 +106,6 @@ async function pollOnce(): Promise<void> {
 }
 
 async function main() {
-  // register our encryption key so makers can seal reveals to us.
   await fetch(`${RELAY}/solvers`, {
     method: "POST",
     headers: { "content-type": "application/json" },

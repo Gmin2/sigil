@@ -131,13 +131,8 @@
   )
 )
 
-;; ---------------------------------------------------------------------------
-;; Rendezvous fuzzing harness. All functions below are gated with
-;; #[env(simnet)] so they are only deployed during local simnet testing and
-;; never reach mainnet. Run with:
-;;   npx rv . intent-verifier invariant
-;;   npx rv . intent-verifier test
-;; ---------------------------------------------------------------------------
+;; Rendezvous fuzzing harness, gated with #[env(simnet)] so it never reaches
+;; mainnet. Run: npx rv . intent-verifier invariant (or test)
 
 ;; #[env(simnet)]
 (define-map context (string-ascii 100) { called: uint })

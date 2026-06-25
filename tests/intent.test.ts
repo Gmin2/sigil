@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { Cl, serializeCV } from "@stacks/transactions";
-import { createHash } from "node:crypto";
+import { Cl } from "@stacks/transactions";
+import { commitHash as sharedCommitHash } from "../shared/intent.ts";
 
 const accounts = simnet.getAccounts();
 const deployer = accounts.get("deployer")!;
@@ -9,27 +9,25 @@ const solver = accounts.get("wallet_2")!;
 
 const usda = `${deployer}.mock-usda`;
 
-// Build the commitment exactly as intent-verifier.compute-commit does:
-// sha256 over the consensus serialization of the revealed params tuple.
+const saltHex = "0x" + "07".repeat(32);
+const salt = Buffer.from(saltHex.slice(2), "hex");
+
+// Wrap the shared primitive so the rest of the test reads the same as before,
+// and so this parity test now guards shared/intent.ts directly.
 function commitHash(opts: {
   tokenOut: string;
   minOut: bigint;
   recipient: string;
   salt: Uint8Array;
 }): Uint8Array {
-  const [addr, name] = opts.tokenOut.split(".");
-  const tuple = Cl.tuple({
-    "min-out": Cl.uint(opts.minOut),
-    recipient: Cl.principal(opts.recipient),
-    salt: Cl.buffer(opts.salt),
-    "token-out": Cl.contractPrincipal(addr, name),
+  const hex = sharedCommitHash({
+    tokenOut: opts.tokenOut,
+    minOut: opts.minOut.toString(),
+    recipient: opts.recipient,
+    salt: "0x" + Buffer.from(opts.salt).toString("hex"),
   });
-  const hex = serializeCV(tuple);
-  const bytes = Buffer.from(hex, "hex");
-  return new Uint8Array(createHash("sha256").update(bytes).digest());
+  return new Uint8Array(Buffer.from(hex.slice(2), "hex"));
 }
-
-const salt = new Uint8Array(32).fill(7);
 
 beforeEach(() => {
   simnet.callPublicFn("mock-sbtc", "faucet", [Cl.uint(2_00000000)], maker);

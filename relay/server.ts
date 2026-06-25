@@ -1,14 +1,14 @@
-import { createServer, type IncomingMessage } from "node:http";
+import express from "express";
 import { commitHash, type Intent, type Reveal } from "../shared/intent.ts";
 
-const PORT = Number(process.env.PORT ?? 8787);
+const PORT = Number(process.env.PORT ?? 8788);
 
 // crude in-memory mempool. swapped for something durable later.
 const intents = new Map<number, Intent>();
 let nextId = 1;
 
-function openCount() {
-  return [...intents.values()].filter((i) => i.status === "open").length;
+function openIntents() {
+  return [...intents.values()].filter((i) => i.status === "open");
 }
 
 // public view of an intent: the reveal stays hidden, observers see only the
@@ -26,79 +26,50 @@ function publicView(i: Intent) {
   };
 }
 
-function readJson(req: IncomingMessage): Promise<any> {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", (c) => (body += c));
-    req.on("end", () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
-}
+const app = express();
+app.use(express.json());
 
-const server = createServer(async (req, res) => {
-  res.setHeader("content-type", "application/json");
-  const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
-
-  try {
-    if (req.method === "GET" && url.pathname === "/health") {
-      return res.end(JSON.stringify({ ok: true, service: "obscura-relay", open: openCount() }));
-    }
-
-    // maker posts an intent. relay derives the commitment from the reveal and
-    // hands back the commit so the maker can escrow on-chain with the same hash.
-    if (req.method === "POST" && url.pathname === "/intents") {
-      const body = await readJson(req);
-      const reveal: Reveal = body.reveal;
-      if (!reveal?.tokenOut || !reveal?.minOut || !reveal?.recipient || !reveal?.salt) {
-        res.statusCode = 400;
-        return res.end(JSON.stringify({ error: "missing reveal fields" }));
-      }
-      const id = nextId++;
-      const intent: Intent = {
-        id,
-        tokenIn: body.tokenIn,
-        amountIn: String(body.amountIn),
-        expiry: Number(body.expiry),
-        maker: body.maker,
-        commit: commitHash(reveal),
-        reveal,
-        status: "open",
-        createdAt: Date.now(),
-      };
-      intents.set(id, intent);
-      return res.end(JSON.stringify({ id, commit: intent.commit }));
-    }
-
-    // public mempool: open intents, reveal hidden.
-    if (req.method === "GET" && url.pathname === "/intents") {
-      const open = [...intents.values()].filter((i) => i.status === "open").map(publicView);
-      return res.end(JSON.stringify({ intents: open }));
-    }
-
-    // solver-facing: fetch the reveal for an intent so a solver can price it.
-    // crude and unauthenticated for now; later this is encrypted to registered
-    // solver keys so only they can decrypt.
-    const revealMatch = url.pathname.match(/^\/intents\/(\d+)\/reveal$/);
-    if (req.method === "GET" && revealMatch) {
-      const i = intents.get(Number(revealMatch[1]));
-      if (!i || i.status !== "open") {
-        res.statusCode = 404;
-        return res.end(JSON.stringify({ error: "no open intent" }));
-      }
-      return res.end(JSON.stringify({ id: i.id, tokenIn: i.tokenIn, amountIn: i.amountIn, reveal: i.reveal }));
-    }
-
-    res.statusCode = 404;
-    res.end(JSON.stringify({ error: "not found" }));
-  } catch (e) {
-    res.statusCode = 500;
-    res.end(JSON.stringify({ error: String(e) }));
-  }
+app.get("/health", (_req, res) => {
+  res.json({ ok: true, service: "obscura-relay", open: openIntents().length });
 });
 
-server.listen(PORT, () => console.log(`relay listening on :${PORT}`));
+// maker posts an intent. relay derives the commitment from the reveal and hands
+// back the commit so the maker can escrow on-chain with the same hash.
+app.post("/intents", (req, res) => {
+  const reveal: Reveal = req.body?.reveal;
+  if (!reveal?.tokenOut || !reveal?.minOut || !reveal?.recipient || !reveal?.salt) {
+    return res.status(400).json({ error: "missing reveal fields" });
+  }
+  const id = nextId++;
+  const intent: Intent = {
+    id,
+    tokenIn: req.body.tokenIn,
+    amountIn: String(req.body.amountIn),
+    expiry: Number(req.body.expiry),
+    maker: req.body.maker,
+    commit: commitHash(reveal),
+    reveal,
+    status: "open",
+    createdAt: Date.now(),
+  };
+  intents.set(id, intent);
+  res.json({ id, commit: intent.commit });
+});
+
+// public mempool: open intents, reveal hidden.
+app.get("/intents", (_req, res) => {
+  res.json({ intents: openIntents().map(publicView) });
+});
+
+// solver-facing: fetch the reveal for an intent so a solver can price it. crude
+// and unauthenticated for now; later this is encrypted to registered solver keys
+// so only they can decrypt.
+app.get("/intents/:id/reveal", (req, res) => {
+  const i = intents.get(Number(req.params.id));
+  if (!i || i.status !== "open") {
+    return res.status(404).json({ error: "no open intent" });
+  }
+  res.json({ id: i.id, tokenIn: i.tokenIn, amountIn: i.amountIn, reveal: i.reveal });
+});
+
+app.listen(PORT, () => console.log(`relay listening on :${PORT}`));

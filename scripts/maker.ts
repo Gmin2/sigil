@@ -6,6 +6,7 @@ import {
   faucet, createIntent, getBalance, getIntent, waitFor, nodeReady,
 } from "../shared/chain.ts";
 import { commitHash, newSalt, type Reveal } from "../shared/intent.ts";
+import { sealTo } from "../shared/crypto.ts";
 
 const RELAY = process.env.RELAY ?? "http://localhost:8788";
 const id = Number(process.env.ID ?? Math.floor(Date.now() / 1000) % 1_000_000);
@@ -25,14 +26,21 @@ async function main() {
   await waitFor("intent open", () => getIntent(id), (i) => i?.status === "0");
   console.log(`  escrowed on-chain, commit ${commit.slice(0, 14)}...`);
 
+  // seal the reveal to every registered solver so the relay only sees ciphertext.
+  const reg = await (await fetch(`${RELAY}/solvers`)).json();
+  const solverKeys: string[] = reg.solvers ?? [];
+  if (solverKeys.length === 0) throw new Error("no registered solvers to seal to");
+  const seals: Record<string, string> = {};
+  for (const pub of solverKeys) seals[pub] = sealTo(pub, reveal);
+
   const r = await fetch(`${RELAY}/intents`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id, tokenIn: SBTC, amountIn: String(amountIn), expiry: 1_000_000, maker: ADDRS.wallet_1, reveal }),
+    body: JSON.stringify({ id, tokenIn: SBTC, amountIn: String(amountIn), expiry: 1_000_000, maker: ADDRS.wallet_1, commit, seals }),
   });
   const body = await r.json();
   if (body.commit !== commit) throw new Error(`relay commit ${body.commit} != on-chain commit ${commit}`);
-  console.log(`  published to relay (id ${id}); relay commit matches on-chain commit`);
+  console.log(`  published to relay (id ${id}); reveal sealed to ${solverKeys.length} solver key(s), relay holds only ciphertext`);
 }
 
 main().catch((e) => {

@@ -14,8 +14,9 @@ export type Intent = {
   expiry: number;
   commit: string; // 0x-prefixed sha256 hex
   maker: string;
-  // hidden fields, kept off-chain by the relay until a solver fills
-  reveal: Reveal;
+  // the reveal sealed (ECIES) to each registered solver pubkey. the relay never
+  // sees plaintext; only a holder of the matching solver key can open its seal.
+  seals: Record<string, string>; // solverPub -> base64 ciphertext
   status: "open" | "filled" | "cancelled";
   createdAt: number;
 };

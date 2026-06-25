@@ -3,22 +3,32 @@
 // on-chain by submitting fill-intent. Crude pricing fills exactly min-out.
 
 import { commitHash, type Reveal } from "../shared/intent.ts";
+import { genSolverKey, open } from "../shared/crypto.ts";
 import {
   KEYS, USDA, faucet, fillIntent, getIntent, getBalance, waitFor, nodeReady, ADDRS,
 } from "../shared/chain.ts";
 
 const RELAY = process.env.RELAY ?? "http://localhost:8788";
-const SOLVER_KEY = KEYS.wallet_2;
+const SOLVER_KEY = KEYS.wallet_2; // stacks key used to submit fills
 const once = process.argv.includes("--once");
+
+// ECIES keypair makers seal reveals to. the relay never learns the private key.
+const enc = genSolverKey();
 
 const handled = new Set<number>();
 
 type Public = { id: number; commit: string };
 
+// fetch this solver's sealed reveal and decrypt it locally.
 async function fetchReveal(id: number): Promise<Reveal | null> {
-  const r = await fetch(`${RELAY}/intents/${id}/reveal`);
+  const r = await fetch(`${RELAY}/intents/${id}/reveal?solver=${enc.pub}`);
   if (!r.ok) return null;
-  return ((await r.json()) as { reveal: Reveal }).reveal;
+  const { seal } = (await r.json()) as { seal: string };
+  try {
+    return open<Reveal>(enc.priv, seal);
+  } catch {
+    return null; // not sealed to us / cannot decrypt
+  }
 }
 
 async function tryFill(p: Public): Promise<void> {
@@ -61,6 +71,14 @@ async function pollOnce(): Promise<void> {
 }
 
 async function main() {
+  // register our encryption key so makers can seal reveals to us.
+  await fetch(`${RELAY}/solvers`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ pub: enc.pub }),
+  });
+  console.log(`registered solver key ${enc.pub.slice(0, 16)}...`);
+
   await waitFor("node", nodeReady, (v) => v === true);
   // make sure the solver can pay out the output token. only faucet when low, and
   // wait for it to mine (so the nonce advances before we submit a fill).

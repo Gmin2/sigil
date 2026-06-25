@@ -80,6 +80,19 @@ const server = createServer(async (req, res) => {
       return res.end(JSON.stringify({ intents: open }));
     }
 
+    // solver-facing: fetch the reveal for an intent so a solver can price it.
+    // crude and unauthenticated for now; later this is encrypted to registered
+    // solver keys so only they can decrypt.
+    const revealMatch = url.pathname.match(/^\/intents\/(\d+)\/reveal$/);
+    if (req.method === "GET" && revealMatch) {
+      const i = intents.get(Number(revealMatch[1]));
+      if (!i || i.status !== "open") {
+        res.statusCode = 404;
+        return res.end(JSON.stringify({ error: "no open intent" }));
+      }
+      return res.end(JSON.stringify({ id: i.id, tokenIn: i.tokenIn, amountIn: i.amountIn, reveal: i.reveal }));
+    }
+
     res.statusCode = 404;
     res.end(JSON.stringify({ error: "not found" }));
   } catch (e) {

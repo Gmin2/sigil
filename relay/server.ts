@@ -5,7 +5,6 @@ const PORT = Number(process.env.PORT ?? 8788);
 
 // crude in-memory mempool. swapped for something durable later.
 const intents = new Map<number, Intent>();
-let nextId = 1;
 
 function openIntents() {
   return [...intents.values()].filter((i) => i.status === "open");
@@ -33,14 +32,17 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "obscura-relay", open: openIntents().length });
 });
 
-// maker posts an intent. relay derives the commitment from the reveal and hands
-// back the commit so the maker can escrow on-chain with the same hash.
+// maker posts an intent keyed by its on-chain id (so a solver can fill the same
+// intent on-chain). relay derives the commitment from the reveal so it can be
+// checked against the public commit a solver sees.
 app.post("/intents", (req, res) => {
+  const id = Number(req.body?.id);
   const reveal: Reveal = req.body?.reveal;
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "missing on-chain id" });
+  if (intents.has(id)) return res.status(409).json({ error: "id already posted" });
   if (!reveal?.tokenOut || !reveal?.minOut || !reveal?.recipient || !reveal?.salt) {
     return res.status(400).json({ error: "missing reveal fields" });
   }
-  const id = nextId++;
   const intent: Intent = {
     id,
     tokenIn: req.body.tokenIn,
@@ -54,6 +56,14 @@ app.post("/intents", (req, res) => {
   };
   intents.set(id, intent);
   res.json({ id, commit: intent.commit });
+});
+
+// solver reports it settled an intent on-chain so the relay stops offering it.
+app.post("/intents/:id/filled", (req, res) => {
+  const i = intents.get(Number(req.params.id));
+  if (!i) return res.status(404).json({ error: "unknown intent" });
+  i.status = "filled";
+  res.json({ ok: true });
 });
 
 // public mempool: open intents, reveal hidden.

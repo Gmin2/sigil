@@ -1,7 +1,9 @@
-// Obscura solver agent. Polls the relay for open intents, fetches the hidden
-// reveal, verifies it hashes to the public commitment, then settles the intent
-// on-chain by submitting fill-intent. Crude pricing fills exactly min-out.
+// Obscura solver agent. Polls the relay for open intents, decrypts the reveal
+// sealed to its key, verifies it hashes to the public commitment, competes in
+// the sealed-bid auction (deliver min-out plus a margin), and if it wins settles
+// the intent on-chain with fill-intent.
 
+import { createHash, randomBytes } from "node:crypto";
 import { commitHash, type Reveal } from "../shared/intent.ts";
 import { genSolverKey, open } from "../shared/crypto.ts";
 import {
@@ -9,8 +11,26 @@ import {
 } from "../shared/chain.ts";
 
 const RELAY = process.env.RELAY ?? "http://localhost:8788";
-const SOLVER_KEY = KEYS.wallet_2; // stacks key used to submit fills
+// which devnet wallet this solver settles from (so competing solvers differ).
+const WALLET = (process.env.SOLVER_WALLET ?? "wallet_2") as "wallet_2" | "wallet_3";
+const SOLVER_KEY = KEYS[WALLET];
+const SOLVER_ADDR = ADDRS[WALLET];
+// how much above min-out this solver is willing to deliver. competing solvers
+// run with different margins; the higher bid wins the maker's intent.
+const MARGIN = BigInt(process.env.MARGIN ?? "0");
 const once = process.argv.includes("--once");
+
+function bidCommit(amountOut: string, salt: string): string {
+  return createHash("sha256").update(`${amountOut}:${salt}`).digest("hex");
+}
+
+function post(path: string, body: unknown) {
+  return fetch(`${RELAY}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
 
 // ECIES keypair makers seal reveals to. the relay never learns the private key.
 const enc = genSolverKey();
@@ -46,16 +66,35 @@ async function tryFill(p: Public): Promise<void> {
   if (onchain?.status !== "0") return;
 
   handled.add(p.id);
-  const amountOut = BigInt(reveal.minOut); // crude: fill exactly the minimum
-  console.log(`#${p.id} filling on-chain (deliver ${amountOut} ${reveal.tokenOut.split(".")[1]})`);
+
+  // bid into the sealed-bid auction: deliver min-out plus our margin.
+  const amountOut = (BigInt(reveal.minOut) + MARGIN).toString();
+  const salt = randomBytes(8).toString("hex");
+  await post(`/intents/${p.id}/bid`, { solver: enc.pub, commit: bidCommit(amountOut, salt) });
+  await post(`/intents/${p.id}/open`, { solver: enc.pub, amountOut, salt });
+  console.log(`#${p.id} bid ${amountOut} ${reveal.tokenOut.split(".")[1]}, waiting for auction...`);
+
+  // wait for the auction to close and see if we won.
+  const result = await waitFor(
+    `#${p.id} auction`,
+    () => fetch(`${RELAY}/intents/${p.id}/auction`).then((r) => r.json()),
+    (a: any) => a.status === "closed",
+    20,
+    1000,
+  );
+  if (result.winner !== enc.pub) {
+    console.log(`#${p.id} lost auction (winner bid ${result.amountOut})`);
+    return;
+  }
+
+  console.log(`#${p.id} won, filling on-chain (deliver ${amountOut})`);
   try {
-    const txid = await fillIntent({ id: p.id, tokenIn: onchain.tokenIn, amountOut, reveal, senderKey: SOLVER_KEY });
+    const txid = await fillIntent({ id: p.id, tokenIn: onchain.tokenIn, amountOut: BigInt(amountOut), reveal, senderKey: SOLVER_KEY });
     console.log(`  fill broadcast ${txid.slice(0, 12)}, waiting for settlement...`);
     await waitFor(`#${p.id} filled`, () => getIntent(p.id), (i) => i?.status === "1");
     await fetch(`${RELAY}/intents/${p.id}/filled`, { method: "POST" });
     console.log(`  #${p.id} settled on-chain`);
   } catch (e) {
-    handled.delete(p.id); // allow a retry next pass
     console.log(`  #${p.id} fill failed: ${(e as Error).message}`);
   }
 }
@@ -82,12 +121,12 @@ async function main() {
   await waitFor("node", nodeReady, (v) => v === true);
   // make sure the solver can pay out the output token. only faucet when low, and
   // wait for it to mine (so the nonce advances before we submit a fill).
-  const bal = await getBalance(USDA, ADDRS.wallet_2);
+  const bal = await getBalance(USDA, SOLVER_ADDR);
   if (bal < 100_000_000n) {
     await faucet(USDA, 1_000_000_000n, SOLVER_KEY);
-    await waitFor("solver funded", () => getBalance(USDA, ADDRS.wallet_2), (b) => b >= bal + 1_000_000_000n);
+    await waitFor("solver funded", () => getBalance(USDA, SOLVER_ADDR), (b) => b >= bal + 1_000_000_000n);
   }
-  console.log(`solver ready (USDA balance ${await getBalance(USDA, ADDRS.wallet_2)})`);
+  console.log(`solver ready (USDA balance ${await getBalance(USDA, SOLVER_ADDR)})`);
 
   do {
     await pollOnce();

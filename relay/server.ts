@@ -1,12 +1,42 @@
 import express from "express";
+import { createHash } from "node:crypto";
 import type { Intent } from "../shared/intent.ts";
 
 const PORT = Number(process.env.PORT ?? 8788);
+const BID_WINDOW_MS = Number(process.env.BID_WINDOW_MS ?? 4000);
 
 // crude in-memory mempool. swapped for something durable later.
 const intents = new Map<number, Intent>();
 // registered solver public keys (secp256k1 hex). makers seal reveals to these.
 const solvers = new Set<string>();
+
+// sealed-bid auction per intent. during the bid window solvers post only a
+// commitment to their price; the relay (and other solvers) cannot see bids.
+// after the window solvers reveal, and the highest output for the maker wins.
+type Bid = { commit: string; amountOut?: string };
+type Auction = { firstBidAt: number; bids: Map<string, Bid> };
+const auctions = new Map<number, Auction>();
+
+function bidCommit(amountOut: string, salt: string): string {
+  return createHash("sha256").update(`${amountOut}:${salt}`).digest("hex");
+}
+
+// winner is decided only after the bid window closes, from revealed bids.
+function auctionState(id: number) {
+  const a = auctions.get(id);
+  if (!a || a.bids.size === 0) return { status: "no-bids" as const };
+  const closed = Date.now() - a.firstBidAt >= BID_WINDOW_MS;
+  if (!closed) return { status: "bidding" as const, bids: a.bids.size };
+  let winner: string | undefined;
+  let best = -1n;
+  for (const [pub, b] of a.bids) {
+    if (b.amountOut === undefined) continue;
+    const v = BigInt(b.amountOut);
+    if (v > best) { best = v; winner = pub; }
+  }
+  if (!winner) return { status: "closed" as const, winner: null };
+  return { status: "closed" as const, winner, amountOut: best.toString() };
+}
 
 function openIntents() {
   return [...intents.values()].filter((i) => i.status === "open");
@@ -72,6 +102,38 @@ app.post("/intents", (req, res) => {
   };
   intents.set(id, intent);
   res.json({ id, commit });
+});
+
+// auction: solver posts a sealed bid (commitment only) during the window.
+app.post("/intents/:id/bid", (req, res) => {
+  const id = Number(req.params.id);
+  const i = intents.get(id);
+  if (!i || i.status !== "open") return res.status(404).json({ error: "no open intent" });
+  const { solver, commit } = req.body ?? {};
+  if (!solver || !commit) return res.status(400).json({ error: "missing solver/commit" });
+  let a = auctions.get(id);
+  if (!a) { a = { firstBidAt: Date.now(), bids: new Map() }; auctions.set(id, a); }
+  if (Date.now() - a.firstBidAt >= BID_WINDOW_MS) return res.status(409).json({ error: "bidding closed" });
+  a.bids.set(solver, { commit });
+  res.json({ ok: true, bids: a.bids.size });
+});
+
+// auction: solver reveals its bid; the relay verifies it matches the commitment.
+app.post("/intents/:id/open", (req, res) => {
+  const a = auctions.get(Number(req.params.id));
+  if (!a) return res.status(404).json({ error: "no auction" });
+  const { solver, amountOut, salt } = req.body ?? {};
+  const b = a.bids.get(solver);
+  if (!b) return res.status(404).json({ error: "no bid from solver" });
+  if (bidCommit(String(amountOut), String(salt)) !== b.commit) {
+    return res.status(400).json({ error: "reveal does not match commitment" });
+  }
+  b.amountOut = String(amountOut);
+  res.json({ ok: true });
+});
+
+app.get("/intents/:id/auction", (req, res) => {
+  res.json(auctionState(Number(req.params.id)));
 });
 
 // solver reports it settled an intent on-chain so the relay stops offering it.

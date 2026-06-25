@@ -1,0 +1,28 @@
+[project]
+name = "obscura"
+description = ""
+authors = []
+telemetry = true
+cache_dir = "./.cache"
+
+[contracts.sip010-trait]
+path = "contracts/sip010-trait.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.mock-sbtc]
+path = "contracts/mock-sbtc.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.mock-usda]
+path = "contracts/mock-usda.clar"
+clarity_version = 3
+epoch = "3.0"
+[repl.analysis]
+passes = ["check_checker"]
+check_checker = { trusted_sender = false, trusted_caller = false, callee_filter = false }
+[contracts.intent-verifier]
+path = "contracts/intent-verifier.clar"
+clarity_version = 3
+epoch = "3.0"

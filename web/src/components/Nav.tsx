@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { BrandMark, ArrowRight } from "./icons";
+import { ArrowRight } from "./icons";
+import { AnimatedLogo } from "./AnimatedLogo";
 
 export type NavLink = { label: string; to: string };
 
@@ -27,8 +28,8 @@ export default function Nav({
 
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md">
         <div className="relative mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6 md:px-10">
-          <Link to="/" className="flex items-center gap-2 text-ink" aria-label="Sigil home">
-            <BrandMark className="h-[26px] w-auto text-accent" />
+          <Link to="/" className="group flex items-center gap-2 text-ink" aria-label="Sigil home">
+            <AnimatedLogo className="h-[26px] w-[26px] text-accent" />
             <span className="font-sans text-[18px] font-medium tracking-[-0.4px]">Sigil</span>
           </Link>
 

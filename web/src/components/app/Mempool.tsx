@@ -21,6 +21,7 @@ export type Row = {
   status: RowStatus;
   fill?: string;
   isNew?: boolean;
+  txid?: string;
 };
 
 const ROW = {

@@ -4,12 +4,13 @@ import Nav from "../components/Nav";
 import SwapCard from "../components/app/SwapCard";
 import Mempool, { type Row } from "../components/app/Mempool";
 import { Lock } from "../components/icons";
+import { request } from "@stacks/connect";
+import { Cl } from "@stacks/transactions";
 import { mockIntents, TOKENS } from "../lib/mock";
 import { fmtAmount, shorten } from "../lib/format";
 import { useWallet } from "../lib/wallet";
-
-// lifecycle timing for a freshly sealed intent
-const TIMING = { bidding: 1300, filled: 3400 };
+import { commitHash, newSalt } from "../lib/intent";
+import { CONTRACTS, DEPLOYER, NETWORK } from "../lib/config";
 
 const initialRows: Row[] = mockIntents.map((it) => ({
   id: it.id,
@@ -23,35 +24,43 @@ const initialRows: Row[] = mockIntents.map((it) => ({
 export default function Dashboard() {
   const { address, connected, connect, disconnect } = useWallet();
   const [rows, setRows] = useState<Row[]>(initialRows);
-  const [nextId, setNextId] = useState(() => Math.max(...initialRows.map((r) => r.id)) + 1);
   const [amount, setAmount] = useState({ sbtc: 0, usda: 0 });
   const [sealing, setSealing] = useState(false);
 
   const onAmount = useCallback((sbtc: number, usda: number) => setAmount({ sbtc, usda }), []);
 
-  const setStatus = (id: number, status: Row["status"], fill?: string) =>
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status, fill: fill ?? r.fill, isNew: false } : r)));
-
-  const seal = () => {
-    if (!connected || amount.sbtc <= 0 || sealing) return;
+  const seal = async () => {
+    if (!connected || !address || amount.sbtc <= 0 || sealing) return;
     setSealing(true);
-    const id = nextId;
-    setNextId(id + 1);
-    const usda = amount.usda;
-    const row: Row = {
-      id,
-      sbtc: trim(amount.sbtc),
-      commit: genCommit(`${id}:${amount.sbtc}:${usda}`),
-      expiry: 168500 + id,
-      status: "open",
-      isNew: true,
-    };
-    setRows((prev) => [row, ...prev]);
-    setTimeout(() => setStatus(id, "bidding"), TIMING.bidding);
-    setTimeout(() => {
-      setStatus(id, "filled", fmtUsda(usda * 1.012));
+    try {
+      const id = Math.floor(Math.random() * 1_000_000_000);
+      const amountIn = BigInt(Math.round(amount.sbtc * 1e8));
+      const minOut = BigInt(Math.round(amount.usda * 1e6));
+      const reveal = { tokenOut: CONTRACTS.usda, minOut: String(minOut), recipient: address, salt: newSalt() };
+      const commit = await commitHash(reveal);
+
+      const res = await request("stx_callContract", {
+        contract: CONTRACTS.verifier as `${string}.${string}`,
+        functionName: "create-intent",
+        functionArgs: [
+          Cl.uint(id),
+          Cl.contractPrincipal(DEPLOYER, "mock-sbtc"),
+          Cl.uint(amountIn),
+          Cl.bufferFromHex(commit.replace(/^0x/, "")),
+          Cl.uint(1_000_000),
+        ],
+        network: NETWORK,
+      });
+
+      setRows((prev) => [
+        { id, sbtc: trim(amount.sbtc), commit: short0x(commit), expiry: 1_000_000, status: "open", isNew: true, txid: res.txid },
+        ...prev,
+      ]);
+    } catch (e) {
+      console.error("seal failed", e);
+    } finally {
       setSealing(false);
-    }, TIMING.filled);
+    }
   };
 
   return (
@@ -133,18 +142,7 @@ function trim(n: number): string {
   return parseFloat(n.toFixed(8)).toString();
 }
 
-function fmtUsda(n: number): string {
-  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
-
-// deterministic fake commitment (display only, not crypto)
-function genCommit(seed: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const a = (h >>> 0).toString(16).padStart(8, "0");
-  const b = (Math.imul(h ^ 0x9e3779b9, 2654435761) >>> 0).toString(16).padStart(8, "0");
-  return `0x${a}${b.slice(0, 4)}…${b.slice(4)}`;
+function short0x(hex: string): string {
+  const h = hex.replace(/^0x/, "");
+  return `0x${h.slice(0, 8)}…${h.slice(-8)}`;
 }

@@ -5,12 +5,12 @@ import SwapCard from "../components/app/SwapCard";
 import Mempool, { type Row } from "../components/app/Mempool";
 import { Lock } from "../components/icons";
 import { request } from "@stacks/connect";
-import { Cl } from "@stacks/transactions";
+import { Cl, Pc } from "@stacks/transactions";
 import { mockIntents, TOKENS } from "../lib/mock";
 import { fmtAmount, shorten } from "../lib/format";
 import { useWallet } from "../lib/wallet";
 import { commitHash, newSalt } from "../lib/intent";
-import { CONTRACTS, DEPLOYER, NETWORK } from "../lib/config";
+import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER } from "../lib/config";
 
 const initialRows: Row[] = mockIntents.map((it) => ({
   id: it.id,
@@ -44,11 +44,14 @@ export default function Dashboard() {
         functionName: "create-intent",
         functionArgs: [
           Cl.uint(id),
-          Cl.contractPrincipal(DEPLOYER, "mock-sbtc"),
+          Cl.contractPrincipal(SBTC_DEPLOYER, "sbtc-token"),
           Cl.uint(amountIn),
           Cl.bufferFromHex(commit.replace(/^0x/, "")),
           Cl.uint(1_000_000),
         ],
+        // the maker sends exactly amountIn sBTC into escrow; nothing more
+        postConditionMode: "deny",
+        postConditions: [Pc.principal(address).willSendEq(amountIn).ft(SBTC as `${string}.${string}`, "sbtc-token")],
         network: NETWORK,
       });
 

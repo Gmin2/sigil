@@ -1,8 +1,12 @@
 export const DEPLOYER = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
 
+// official sBTC token; deployed and auto-funded on devnet by clarinet.
+export const SBTC_DEPLOYER = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4";
+export const SBTC = `${SBTC_DEPLOYER}.sbtc-token`;
+
 export const CONTRACTS = {
   verifier: `${DEPLOYER}.intent-verifier`,
-  sbtc: `${DEPLOYER}.mock-sbtc`,
+  sbtc: SBTC,
   usda: `${DEPLOYER}.mock-usda`,
 };
 

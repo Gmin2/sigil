@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Nav from "../components/Nav";
 import SwapCard from "../components/app/SwapCard";
@@ -6,29 +6,49 @@ import Mempool, { type Row } from "../components/app/Mempool";
 import { Lock } from "../components/icons";
 import { request } from "@stacks/connect";
 import { Cl, Pc } from "@stacks/transactions";
-import { mockIntents, TOKENS } from "../lib/mock";
+import { TOKENS } from "../lib/mock";
 import { fmtAmount, shorten } from "../lib/format";
 import { useWallet } from "../lib/wallet";
 import { commitHash, newSalt } from "../lib/intent";
-import { publishIntent } from "../lib/relay";
+import { getFeed, publishIntent, type FeedIntent } from "../lib/relay";
 import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER } from "../lib/config";
 
-const initialRows: Row[] = mockIntents.map((it) => ({
-  id: it.id,
-  sbtc: fmtAmount(it.amountIn, TOKENS.sbtc.decimals),
-  commit: it.commit,
-  expiry: it.expiry,
-  status: it.status,
-  fill: it.auction?.amountOut ? fmtAmount(it.auction.amountOut, TOKENS.usda.decimals) : undefined,
-}));
+function toRow(f: FeedIntent): Row {
+  const filled = f.status === "filled";
+  const bidding = f.auction?.status === "bidding";
+  return {
+    id: f.id,
+    sbtc: fmtAmount(f.amountIn, TOKENS.sbtc.decimals),
+    commit: short0x(f.commit),
+    expiry: f.expiry,
+    status: filled ? "filled" : bidding ? "bidding" : "open",
+    fill: f.auction?.amountOut ? fmtAmount(f.auction.amountOut, TOKENS.usda.decimals) : undefined,
+  };
+}
 
 export default function Dashboard() {
   const { address, connected, connect, disconnect } = useWallet();
-  const [rows, setRows] = useState<Row[]>(initialRows);
+  const [rows, setRows] = useState<Row[]>([]);
   const [amount, setAmount] = useState({ sbtc: 0, usda: 0 });
   const [sealing, setSealing] = useState(false);
 
   const onAmount = useCallback((sbtc: number, usda: number) => setAmount({ sbtc, usda }), []);
+
+  const refresh = useCallback(async () => {
+    try {
+      const feed = await getFeed();
+      feed.sort((a, b) => b.createdAt - a.createdAt);
+      setRows(feed.map(toRow));
+    } catch {
+      // relay not running yet; leave rows as-is
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const iv = setInterval(refresh, 2000);
+    return () => clearInterval(iv);
+  }, [refresh]);
 
   const seal = async () => {
     if (!connected || !address || amount.sbtc <= 0 || sealing) return;
@@ -67,10 +87,8 @@ export default function Dashboard() {
         reveal,
       }).catch((e) => console.warn("relay publish failed (intent still escrowed on-chain):", e));
 
-      setRows((prev) => [
-        { id, sbtc: trim(amount.sbtc), commit: short0x(commit), expiry: 1_000_000, status: "open", isNew: true, txid: res.txid },
-        ...prev,
-      ]);
+      console.log("create-intent tx:", res.txid);
+      await refresh();
     } catch (e) {
       console.error("seal failed", e);
     } finally {
@@ -151,10 +169,6 @@ function ConnectButton({
       Connect wallet
     </button>
   );
-}
-
-function trim(n: number): string {
-  return parseFloat(n.toFixed(8)).toString();
 }
 
 function short0x(hex: string): string {

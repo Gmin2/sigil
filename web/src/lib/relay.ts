@@ -25,9 +25,11 @@ export async function getSolvers(): Promise<string[]> {
   return ((await r.json()) as { solvers: string[] }).solvers ?? [];
 }
 
-export async function getIntents(): Promise<RelayIntent[]> {
-  const r = await fetch(`${RELAY}/intents`);
-  return ((await r.json()) as { intents: RelayIntent[] }).intents ?? [];
+export type FeedIntent = RelayIntent & { auction: RelayAuction };
+
+export async function getFeed(): Promise<FeedIntent[]> {
+  const r = await fetch(`${RELAY}/intents?all=1`);
+  return ((await r.json()) as { intents: FeedIntent[] }).intents ?? [];
 }
 
 export async function getAuction(id: number): Promise<RelayAuction> {

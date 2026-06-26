@@ -142,8 +142,11 @@ app.post("/intents/:id/filled", (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/intents", (_req, res) => {
-  res.json({ intents: openIntents().map(publicView) });
+// ?all=1 returns every intent with its auction status (the dashboard feed);
+// default returns only open intents (what solvers poll).
+app.get("/intents", (req, res) => {
+  const list = req.query.all === "1" ? [...intents.values()] : openIntents();
+  res.json({ intents: list.map((i) => ({ ...publicView(i), auction: auctionState(i.id) })) });
 });
 
 // hands back only the ciphertext sealed to this solver's key

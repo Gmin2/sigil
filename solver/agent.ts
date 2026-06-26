@@ -88,7 +88,7 @@ async function tryFill(p: Public): Promise<void> {
     const txid = await fillIntent({ id: p.id, tokenIn: onchain.tokenIn, amountOut: BigInt(amountOut), reveal, senderKey: SOLVER_KEY });
     console.log(`  fill broadcast ${txid.slice(0, 12)}, waiting for settlement...`);
     await waitFor(`#${p.id} filled`, () => getIntent(p.id), (i) => i?.status === "1");
-    await fetch(`${RELAY}/intents/${p.id}/filled`, { method: "POST" });
+    await post(`/intents/${p.id}/filled`, { txid });
     console.log(`  #${p.id} settled on-chain`);
   } catch (e) {
     console.log(`  #${p.id} fill failed: ${(e as Error).message}`);
@@ -117,9 +117,10 @@ async function main() {
   // make sure the solver can pay out the output token. only faucet when low, and
   // wait for it to mine (so the nonce advances before we submit a fill).
   const bal = await getBalance(USDA, SOLVER_ADDR);
-  if (bal < 100_000_000n) {
-    await faucet(USDA, 1_000_000_000n, SOLVER_KEY);
-    await waitFor("solver funded", () => getBalance(USDA, SOLVER_ADDR), (b) => b >= bal + 1_000_000_000n);
+  const TOPUP = 1_000_000_000_000n; // 1,000,000 USDA, enough to cover large fills
+  if (bal < 100_000_000_000n) {
+    await faucet(USDA, TOPUP, SOLVER_KEY);
+    await waitFor("solver funded", () => getBalance(USDA, SOLVER_ADDR), (b) => b >= bal + TOPUP);
   }
   console.log(`solver ready (USDA balance ${await getBalance(USDA, SOLVER_ADDR)})`);
 

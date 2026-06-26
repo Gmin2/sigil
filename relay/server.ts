@@ -51,6 +51,8 @@ function publicView(i: Intent) {
     maker: i.maker,
     status: i.status,
     createdAt: i.createdAt,
+    createTxid: i.createTxid,
+    fillTxid: i.fillTxid,
   };
 }
 
@@ -100,6 +102,7 @@ app.post("/intents", (req, res) => {
     seals,
     status: "open",
     createdAt: Date.now(),
+    createTxid: req.body.createTxid,
   };
   intents.set(id, intent);
   res.json({ id, commit });
@@ -139,6 +142,7 @@ app.post("/intents/:id/filled", (req, res) => {
   const i = intents.get(Number(req.params.id));
   if (!i) return res.status(404).json({ error: "unknown intent" });
   i.status = "filled";
+  if (req.body?.txid) i.fillTxid = req.body.txid;
   res.json({ ok: true });
 });
 

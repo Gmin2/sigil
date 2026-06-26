@@ -31,7 +31,7 @@ const ROW = {
   spring: { type: "spring" as const, stiffness: 320, damping: 32 },
 };
 
-export default function Mempool({ rows }: { rows: Row[] }) {
+export default function Mempool({ rows, onRowClick }: { rows: Row[]; onRowClick?: (id: number) => void }) {
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
@@ -59,7 +59,8 @@ export default function Mempool({ rows }: { rows: Row[] }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ ...ROW.spring, delay: r.isNew ? 0 : i * ROW.stagger }}
-                className="relative isolate flex h-12 items-center rounded-lg bg-surface-100 text-[14px] hover:bg-surface-200"
+                onClick={() => onRowClick?.(r.id)}
+                className="relative isolate flex h-12 cursor-pointer items-center rounded-lg bg-surface-100 text-[14px] hover:bg-surface-200"
               >
                 {r.isNew && (
                   <motion.span

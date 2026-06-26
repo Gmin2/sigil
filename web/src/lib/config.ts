@@ -18,3 +18,8 @@ export const RELAY = import.meta.env.VITE_RELAY ?? "http://localhost:8788";
 // use the stacks-API for browser reads: the node RPC (20443) returns 405 on the
 // CORS preflight, the API (3999) handles it.
 export const NODE = import.meta.env.VITE_NODE ?? "http://localhost:3999";
+export const EXPLORER = import.meta.env.VITE_EXPLORER ?? "http://localhost:8000";
+
+// link to a transaction in the local devnet explorer
+export const txUrl = (txid: string) =>
+  `${EXPLORER}/txid/${txid}?chain=testnet&api=${NODE}`;

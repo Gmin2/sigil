@@ -15,6 +15,8 @@ export type Intent = {
   seals: Record<string, string>;
   status: "open" | "filled" | "cancelled";
   createdAt: number;
+  createTxid?: string; // create-intent tx
+  fillTxid?: string; // fill-intent tx (set when a solver settles)
 };
 
 export type Reveal = {

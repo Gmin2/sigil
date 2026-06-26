@@ -11,7 +11,7 @@ import { useWallet } from "../lib/wallet";
 import { commitHash, newSalt } from "../lib/intent";
 import { getFeed, publishIntent, type FeedIntent } from "../lib/relay";
 import { waitForEscrow, sbtcBalance } from "../lib/chain";
-import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER } from "../lib/config";
+import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER, txUrl } from "../lib/config";
 
 function toRow(f: FeedIntent): Row {
   const filled = f.status === "filled";
@@ -28,10 +28,14 @@ function toRow(f: FeedIntent): Row {
 
 export default function Dashboard() {
   const { address, connected, connect, disconnect } = useWallet();
-  const [rows, setRows] = useState<Row[]>([]);
+  const [feed, setFeed] = useState<FeedIntent[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [amount, setAmount] = useState({ sbtc: 0, usda: 0 });
   const [sealing, setSealing] = useState(false);
   const [sbtcBal, setSbtcBal] = useState<number | undefined>();
+
+  const rows = feed.map(toRow);
+  const selected = feed.find((f) => f.id === selectedId) ?? null;
 
   const onAmount = useCallback((sbtc: number, usda: number) => setAmount({ sbtc, usda }), []);
 
@@ -49,11 +53,11 @@ export default function Dashboard() {
 
   const refresh = useCallback(async () => {
     try {
-      const feed = await getFeed();
-      feed.sort((a, b) => b.createdAt - a.createdAt);
-      setRows(feed.map(toRow));
+      const f = await getFeed();
+      f.sort((a, b) => b.createdAt - a.createdAt);
+      setFeed(f);
     } catch {
-      // relay not running yet; leave rows as-is
+      // relay not running yet; leave feed as-is
     }
   }, []);
 
@@ -98,6 +102,7 @@ export default function Dashboard() {
         maker: address,
         commit,
         reveal,
+        createTxid: res.txid,
       }).catch((e) => console.warn("relay publish failed (intent still escrowed on-chain):", e));
 
       console.log("create-intent tx:", res.txid);
@@ -152,9 +157,11 @@ export default function Dashboard() {
           </p>
         </div>
 
-          <Mempool rows={rows} />
+          <Mempool rows={rows} onRowClick={setSelectedId} />
         </div>
       </main>
+
+      {selected && <IntentModal intent={selected} onClose={() => setSelectedId(null)} />}
     </div>
   );
 }
@@ -190,4 +197,69 @@ function ConnectButton({
 function short0x(hex: string): string {
   const h = hex.replace(/^0x/, "");
   return `0x${h.slice(0, 8)}…${h.slice(-8)}`;
+}
+
+function IntentModal({ intent, onClose }: { intent: FeedIntent; onClose: () => void }) {
+  const fill = intent.auction?.amountOut;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[440px] rounded-2xl border border-border bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-sans text-[18px] font-medium">Intent #{intent.id}</h3>
+          <button onClick={onClose} className="text-faint hover:text-ink">
+            ✕
+          </button>
+        </div>
+
+        <dl className="space-y-3 text-[14px]">
+          <Field label="Escrowed">{fmtAmount(intent.amountIn, TOKENS.sbtc.decimals)} sBTC</Field>
+          <Field label="Status">{intent.status}</Field>
+          {fill && <Field label="Filled for">{fmtAmount(fill, TOKENS.usda.decimals)} USDA</Field>}
+          <Field label="Commitment">
+            <span className="break-all font-doto text-[12px] text-accent">{intent.commit}</span>
+          </Field>
+          <Field label="Maker">
+            <span className="font-mono text-[12px]">{shorten(intent.maker)}</span>
+          </Field>
+          {intent.createTxid && (
+            <Field label="Escrow tx">
+              <TxLink txid={intent.createTxid} />
+            </Field>
+          )}
+          {intent.fillTxid && (
+            <Field label="Fill tx">
+              <TxLink txid={intent.fillTxid} />
+            </Field>
+          )}
+        </dl>
+
+        <p className="mt-5 rounded-lg bg-surface-100 px-3 py-2 font-mono text-[11px] text-muted">
+          the order (output token, price, recipient) stays sealed — only the commitment is public
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className="shrink-0 text-muted">{label}</dt>
+      <dd className="text-right text-ink">{children}</dd>
+    </div>
+  );
+}
+
+function TxLink({ txid }: { txid: string }) {
+  return (
+    <a href={txUrl(txid)} target="_blank" rel="noreferrer" className="font-mono text-[12px] text-accent hover:underline">
+      {short0x(txid)} ↗
+    </a>
+  );
 }

@@ -22,7 +22,7 @@ async function main() {
   console.log(`maker escrowing intent #${id} (${amountIn} sBTC, min ${minOut} USDA)`);
   // sBTC is auto-funded on devnet; no faucet needed
   await waitFor("maker sbtc", () => getBalance(SBTC, ADDRS.wallet_1), (b) => b >= amountIn);
-  await createIntent({ id, tokenIn: SBTC, amountIn, commit, expiry: 1_000_000, senderKey: KEYS.wallet_1 });
+  const createTxid = await createIntent({ id, tokenIn: SBTC, amountIn, commit, expiry: 1_000_000, senderKey: KEYS.wallet_1 });
   await waitFor("intent open", () => getIntent(id), (i) => i?.status === "0");
   console.log(`  escrowed on-chain, commit ${commit.slice(0, 14)}...`);
 
@@ -36,7 +36,7 @@ async function main() {
   const r = await fetch(`${RELAY}/intents`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id, tokenIn: SBTC, amountIn: String(amountIn), expiry: 1_000_000, maker: ADDRS.wallet_1, commit, seals }),
+    body: JSON.stringify({ id, tokenIn: SBTC, amountIn: String(amountIn), expiry: 1_000_000, maker: ADDRS.wallet_1, commit, seals, createTxid }),
   });
   const body = await r.json();
   if (body.commit !== commit) throw new Error(`relay commit ${body.commit} != on-chain commit ${commit}`);

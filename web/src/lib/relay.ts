@@ -11,6 +11,8 @@ export type RelayIntent = {
   maker: string;
   status: "open" | "filled" | "cancelled";
   createdAt: number;
+  createTxid?: string;
+  fillTxid?: string;
 };
 
 export type RelayAuction = {
@@ -46,6 +48,7 @@ export async function publishIntent(p: {
   maker: string;
   commit: string;
   reveal: Reveal;
+  createTxid?: string;
 }): Promise<number> {
   const solvers = await getSolvers();
   const seals: Record<string, string> = {};
@@ -53,7 +56,7 @@ export async function publishIntent(p: {
   const r = await fetch(`${RELAY}/intents`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id: p.id, tokenIn: p.tokenIn, amountIn: p.amountIn, expiry: p.expiry, maker: p.maker, commit: p.commit, seals }),
+    body: JSON.stringify({ id: p.id, tokenIn: p.tokenIn, amountIn: p.amountIn, expiry: p.expiry, maker: p.maker, commit: p.commit, seals, createTxid: p.createTxid }),
   });
   if (!r.ok) throw new Error(`relay rejected intent: ${r.status}`);
   return solvers.length;

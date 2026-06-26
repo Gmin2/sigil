@@ -10,6 +10,7 @@ import { mockIntents, TOKENS } from "../lib/mock";
 import { fmtAmount, shorten } from "../lib/format";
 import { useWallet } from "../lib/wallet";
 import { commitHash, newSalt } from "../lib/intent";
+import { publishIntent } from "../lib/relay";
 import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER } from "../lib/config";
 
 const initialRows: Row[] = mockIntents.map((it) => ({
@@ -54,6 +55,17 @@ export default function Dashboard() {
         postConditions: [Pc.principal(address).willSendEq(amountIn).ft(SBTC as `${string}.${string}`, "sbtc-token")],
         network: NETWORK,
       });
+
+      // publish the sealed intent so solvers can find and fill it
+      await publishIntent({
+        id,
+        tokenIn: SBTC,
+        amountIn: String(amountIn),
+        expiry: 1_000_000,
+        maker: address,
+        commit,
+        reveal,
+      }).catch((e) => console.warn("relay publish failed (intent still escrowed on-chain):", e));
 
       setRows((prev) => [
         { id, sbtc: trim(amount.sbtc), commit: short0x(commit), expiry: 1_000_000, status: "open", isNew: true, txid: res.txid },

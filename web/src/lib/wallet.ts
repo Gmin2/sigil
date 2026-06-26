@@ -9,7 +9,13 @@ export function useWallet() {
   const [address, setAddress] = useState<string | null>(() => stxAddress());
 
   const open = useCallback(async () => {
-    await connect();
+    try {
+      await connect();
+    } catch (e) {
+      // a misbehaving wallet extension (e.g. an un-onboarded one) can reject
+      // during discovery; don't let it wedge the flow, just read what we got.
+      console.warn("connect:", e);
+    }
     setAddress(stxAddress());
   }, []);
 

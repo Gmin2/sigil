@@ -6,8 +6,7 @@ import Mempool, { type Row } from "../components/app/Mempool";
 import { Lock } from "../components/icons";
 import { mockIntents, TOKENS } from "../lib/mock";
 import { fmtAmount, shorten } from "../lib/format";
-
-const MOCK_ADDR = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM";
+import { useWallet } from "../lib/wallet";
 
 // lifecycle timing for a freshly sealed intent
 const TIMING = { bidding: 1300, filled: 3400 };
@@ -22,7 +21,7 @@ const initialRows: Row[] = mockIntents.map((it) => ({
 }));
 
 export default function Dashboard() {
-  const [connected, setConnected] = useState(false);
+  const { address, connected, connect, disconnect } = useWallet();
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [nextId, setNextId] = useState(() => Math.max(...initialRows.map((r) => r.id)) + 1);
   const [amount, setAmount] = useState({ sbtc: 0, usda: 0 });
@@ -57,7 +56,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-white text-ink">
-      <Nav announcement={false} right={<ConnectButton connected={connected} onToggle={() => setConnected((c) => !c)} />} />
+      <Nav announcement={false} right={<ConnectButton address={address} onConnect={connect} onDisconnect={disconnect} />} />
 
       <main className="mx-auto max-w-[520px] px-6 py-12">
         <div className="mb-8 text-center">
@@ -72,7 +71,7 @@ export default function Dashboard() {
           <SwapCard onAmount={onAmount} />
 
           <button
-            onClick={connected ? seal : () => setConnected(true)}
+            onClick={connected ? seal : connect}
             disabled={connected && (amount.sbtc <= 0 || sealing)}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 font-sans text-[16px] font-medium text-white transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -102,18 +101,27 @@ export default function Dashboard() {
   );
 }
 
-function ConnectButton({ connected, onToggle }: { connected: boolean; onToggle: () => void }) {
-  return connected ? (
+function ConnectButton({
+  address,
+  onConnect,
+  onDisconnect,
+}: {
+  address: string | null;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  return address ? (
     <button
-      onClick={onToggle}
+      onClick={onDisconnect}
+      title="Disconnect"
       className="flex items-center gap-2 rounded-full border border-border px-3.5 py-2 font-mono text-[13px] text-ink"
     >
       <span className="h-1.5 w-1.5 rounded-full bg-sealed" />
-      {shorten(MOCK_ADDR)}
+      {shorten(address)}
     </button>
   ) : (
     <button
-      onClick={onToggle}
+      onClick={onConnect}
       className="rounded-full bg-accent px-4 py-2 font-sans text-[14px] font-medium text-white transition-colors hover:bg-accent-600"
     >
       Connect wallet

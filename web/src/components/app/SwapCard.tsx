@@ -12,7 +12,13 @@ import TokenSelect from "./TokenSelect";
 
 const MAX = 100000;
 
-export default function SwapCard({ onAmount }: { onAmount?: (amountIn: number, amountOut: number) => void }) {
+export default function SwapCard({
+  onAmount,
+  sbtcBalance,
+}: {
+  onAmount?: (amountIn: number, amountOut: number) => void;
+  sbtcBalance?: number;
+}) {
   const [value, setValue] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -20,10 +26,13 @@ export default function SwapCard({ onAmount }: { onAmount?: (amountIn: number, a
   const [fromTok, setFromTok] = useState<Token>(() => findToken("sBTC"));
   const [toTok, setToTok] = useState<Token>(() => findToken("USDA"));
 
+  // use the real on-chain balance for sBTC when the wallet is connected
+  const balance = fromTok.symbol === "sBTC" && sbtcBalance != null ? sbtcBalance : fromTok.balance;
+
   const usdValue = value * fromTok.price;
   const receive = usdValue / toTok.price;
-  const isInsufficient = value > fromTok.balance;
-  const nearMax = value > fromTok.balance - 1e-9;
+  const isInsufficient = value > balance;
+  const nearMax = value > balance - 1e-9;
 
   useEffect(() => {
     onAmount?.(value, receive);
@@ -62,8 +71,8 @@ export default function SwapCard({ onAmount }: { onAmount?: (amountIn: number, a
   };
 
   const handleUseMax = () => {
-    setValue(fromTok.balance);
-    setInputValue(String(fromTok.balance));
+    setValue(balance);
+    setInputValue(String(balance));
   };
 
   const handleClear = () => {
@@ -82,7 +91,7 @@ export default function SwapCard({ onAmount }: { onAmount?: (amountIn: number, a
             <div className="flex flex-col">
               <TokenSelect token={fromTok} exclude={toTok.symbol} onSelect={pickFrom} />
               <p className="mt-0.5 pl-1 text-[13px] text-muted">
-                {fmtBal(fromTok.balance)} {fromTok.symbol}
+                {fmtBal(balance)} {fromTok.symbol}
               </p>
             </div>
             <button

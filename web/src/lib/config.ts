@@ -15,4 +15,6 @@ export const CONTRACTS = {
 export const NETWORK = "devnet" as const;
 
 export const RELAY = import.meta.env.VITE_RELAY ?? "http://localhost:8788";
-export const NODE = import.meta.env.VITE_NODE ?? "http://localhost:20443";
+// use the stacks-API for browser reads: the node RPC (20443) returns 405 on the
+// CORS preflight, the API (3999) handles it.
+export const NODE = import.meta.env.VITE_NODE ?? "http://localhost:3999";

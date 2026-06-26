@@ -71,7 +71,7 @@ export default function Mempool({ rows }: { rows: Row[] }) {
                   />
                 )}
                 <div className="relative z-10 flex w-full items-center gap-3 px-4">
-                  <span className="w-9 shrink-0 font-mono text-muted">#{r.id}</span>
+                  <span className="w-[84px] shrink-0 truncate font-mono tabular-nums text-muted">#{r.id}</span>
                   <span className="w-24 shrink-0 font-medium text-ink">{r.sbtc} sBTC</span>
                   <span className="shrink-0 font-doto text-[13px] text-accent">{shorten(r.commit, 6, 4)}</span>
                   <div className="h-px flex-1 bg-border-200" />

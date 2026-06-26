@@ -10,7 +10,7 @@ import { fmtAmount, shorten } from "../lib/format";
 import { useWallet } from "../lib/wallet";
 import { commitHash, newSalt } from "../lib/intent";
 import { getFeed, publishIntent, type FeedIntent } from "../lib/relay";
-import { waitForEscrow } from "../lib/chain";
+import { waitForEscrow, sbtcBalance } from "../lib/chain";
 import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER } from "../lib/config";
 
 function toRow(f: FeedIntent): Row {
@@ -31,8 +31,21 @@ export default function Dashboard() {
   const [rows, setRows] = useState<Row[]>([]);
   const [amount, setAmount] = useState({ sbtc: 0, usda: 0 });
   const [sealing, setSealing] = useState(false);
+  const [sbtcBal, setSbtcBal] = useState<number | undefined>();
 
   const onAmount = useCallback((sbtc: number, usda: number) => setAmount({ sbtc, usda }), []);
+
+  // load the wallet's real sBTC balance (sats -> sBTC) when connected
+  useEffect(() => {
+    if (!address) return setSbtcBal(undefined);
+    let live = true;
+    sbtcBalance(address)
+      .then((b) => live && setSbtcBal(Number(b) / 1e8))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [address]);
 
   const refresh = useCallback(async () => {
     try {
@@ -54,7 +67,7 @@ export default function Dashboard() {
     if (!connected || !address || amount.sbtc <= 0 || sealing) return;
     setSealing(true);
     try {
-      const id = Math.floor(Math.random() * 1_000_000_000);
+      const id = Math.floor(Math.random() * 1_000_000);
       const amountIn = BigInt(Math.round(amount.sbtc * 1e8));
       const minOut = BigInt(Math.round(amount.usda * 1e6));
       const reveal = { tokenOut: CONTRACTS.usda, minOut: String(minOut), recipient: address, salt: newSalt() };
@@ -112,7 +125,7 @@ export default function Dashboard() {
 
         <div className="flex flex-col gap-12">
           <div>
-          <SwapCard onAmount={onAmount} />
+          <SwapCard onAmount={onAmount} sbtcBalance={sbtcBal} />
 
           <button
             onClick={connected ? seal : connect}

@@ -31,7 +31,8 @@ export const ADDRS = {
   wallet_3: "ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC",
 };
 
-export const SBTC = `${ADDRS.deployer}.mock-sbtc`;
+// official sBTC token; deployed + auto-funded on devnet by clarinet.
+export const SBTC = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token";
 export const USDA = `${ADDRS.deployer}.mock-usda`;
 
 const NET = "devnet" as const;

@@ -3,7 +3,7 @@
 
 import {
   KEYS, ADDRS, SBTC, USDA,
-  faucet, createIntent, getBalance, getIntent, waitFor, nodeReady,
+  createIntent, getBalance, getIntent, waitFor, nodeReady,
 } from "../shared/chain.ts";
 import { commitHash, newSalt, type Reveal } from "../shared/intent.ts";
 import { sealTo } from "../shared/crypto.ts";
@@ -19,8 +19,8 @@ async function main() {
   const reveal: Reveal = { tokenOut: USDA, minOut: String(minOut), recipient: ADDRS.wallet_1, salt: newSalt() };
   const commit = commitHash(reveal);
 
-  console.log(`maker funding + escrowing intent #${id} (${amountIn} sBTC, min ${minOut} USDA)`);
-  await faucet(SBTC, amountIn, KEYS.wallet_1);
+  console.log(`maker escrowing intent #${id} (${amountIn} sBTC, min ${minOut} USDA)`);
+  // sBTC is auto-funded on devnet; no faucet needed
   await waitFor("maker sbtc", () => getBalance(SBTC, ADDRS.wallet_1), (b) => b >= amountIn);
   await createIntent({ id, tokenIn: SBTC, amountIn, commit, expiry: 1_000_000, senderKey: KEYS.wallet_1 });
   await waitFor("intent open", () => getIntent(id), (i) => i?.status === "0");

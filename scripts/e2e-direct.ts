@@ -21,8 +21,7 @@ async function main() {
   const reveal: Reveal = { tokenOut: USDA, minOut: String(minOut), recipient: ADDRS.wallet_1, salt: newSalt() };
   const commit = commitHash(reveal);
 
-  console.log(`\nfaucet: maker +${amountIn} sBTC, solver +100 USDA`);
-  await faucet(SBTC, amountIn, KEYS.wallet_1);
+  console.log(`\nsolver faucet +100 USDA (sBTC is auto-funded on devnet)`);
   await faucet(USDA, 100_000_000n, KEYS.wallet_2);
   await waitFor("maker sbtc", () => getBalance(SBTC, ADDRS.wallet_1), (b) => b >= amountIn);
   await waitFor("solver usda", () => getBalance(USDA, ADDRS.wallet_2), (b) => b >= amountOut);

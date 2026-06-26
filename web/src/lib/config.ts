@@ -15,3 +15,4 @@ export const CONTRACTS = {
 export const NETWORK = "devnet" as const;
 
 export const RELAY = import.meta.env.VITE_RELAY ?? "http://localhost:8788";
+export const NODE = import.meta.env.VITE_NODE ?? "http://localhost:20443";

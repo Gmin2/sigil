@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "motion/react";
 import Nav from "../components/Nav";
 import SwapCard from "../components/app/SwapCard";
 import Mempool, { type Row } from "../components/app/Mempool";
@@ -11,6 +10,7 @@ import { fmtAmount, shorten } from "../lib/format";
 import { useWallet } from "../lib/wallet";
 import { commitHash, newSalt } from "../lib/intent";
 import { getFeed, publishIntent, type FeedIntent } from "../lib/relay";
+import { waitForEscrow } from "../lib/chain";
 import { CONTRACTS, NETWORK, SBTC, SBTC_DEPLOYER } from "../lib/config";
 
 function toRow(f: FeedIntent): Row {
@@ -88,6 +88,8 @@ export default function Dashboard() {
       }).catch((e) => console.warn("relay publish failed (intent still escrowed on-chain):", e));
 
       console.log("create-intent tx:", res.txid);
+      // keep the button loading until the escrow is actually confirmed on-chain
+      await waitForEscrow(id);
       await refresh();
     } catch (e) {
       console.error("seal failed", e);
@@ -120,9 +122,10 @@ export default function Dashboard() {
             {!connected ? (
               "Connect wallet to seal"
             ) : sealing ? (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-                <Lock className="h-4 w-4" /> sealing…
-              </motion.span>
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                sealing…
+              </span>
             ) : amount.sbtc <= 0 ? (
               "Enter an amount"
             ) : (

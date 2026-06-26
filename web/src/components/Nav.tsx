@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "./icons";
 import { AnimatedLogo } from "./AnimatedLogo";
 
-export type NavLink = { label: string; to: string };
+export type NavLink = { label: string; to: string; Icon?: (p: { className?: string }) => ReactNode };
 
 export default function Nav({
   right,
@@ -37,14 +37,22 @@ export default function Nav({
             <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 md:flex">
               {links.map((l) => {
                 const cls =
-                  "font-sans text-[16px] tracking-[-0.16px] text-ink transition-colors hover:text-muted";
+                  "group inline-flex items-center gap-1.5 font-sans text-[16px] tracking-[-0.16px] text-ink transition-colors hover:text-accent";
+                const inner = (
+                  <>
+                    {l.Icon && (
+                      <l.Icon className="h-[18px] w-[18px] text-muted transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-110 group-hover:text-accent" />
+                    )}
+                    {l.label}
+                  </>
+                );
                 return l.to.includes("#") ? (
                   <a key={l.label} href={l.to} className={cls}>
-                    {l.label}
+                    {inner}
                   </a>
                 ) : (
                   <Link key={l.label} to={l.to} className={cls}>
-                    {l.label}
+                    {inner}
                   </Link>
                 );
               })}

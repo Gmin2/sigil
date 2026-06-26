@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "baseSans";
+  src: url("/fonts/BaseSans-Regular.woff") format("woff");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "baseSans";
+  src: url("/fonts/BaseSans-Medium.woff") format("woff");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "baseSansText";
+  src: url("/fonts/BaseSansText-Regular.woff") format("woff");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "baseSansMono";
+  src: url("/fonts/BaseSansMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "doto";
+  src: url("/fonts/Doto.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "baseSans", system-ui, sans-serif;
+  --font-text: "baseSansText", system-ui, sans-serif;
+  --font-mono: "baseSansMono", ui-monospace, monospace;
+  --font-doto: "doto", monospace;
+
+  /* base/due neutrals */
+  --color-ink: #171717;
+  --color-ink-strong: #000000;
+  --color-muted: #6f6f6f;
+  --color-muted-2: #787878;
+  --color-faint: #9a9a9a;
+  --color-surface-100: #fafafa;
+  --color-surface-150: #f8f8f8;
+  --color-surface-200: #efefef;
+  --color-border: #efefef;
+  --color-border-200: #e5e5e5;
+
+  /* accent: Sigil iris/indigo — lighter + distinct from Base's flat #0000ff */
+  --color-accent: #5a4bff;
+  --color-accent-600: #4133e6;
+  --color-accent-soft: #c3bdff;
+  --color-accent-wash: #f1efff;
+
+  /* secondary chips borrowed from due (cool only) */
+  --color-lilac: #edd7f6;
+  --color-sky: #92d4f6;
+  --color-teal: #03625c;
+  /* status: sealed / filled (cool green, not yellow) */
+  --color-sealed: #15875a;
+
+  --radius-card: 16px;
+  --radius-pill: 50px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: var(--font-text);
+    color: var(--color-ink);
+    background: #ffffff;
+  }
+}
+
+@keyframes marquee-scroll-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee-scroll-x 55000ms linear infinite;
+}
+
+/* conveyor: intents flow left -> right through the seal gate */
+@keyframes conveyor-x {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+.conveyor-track {
+  animation: conveyor-x linear infinite;
+}
+
+/* marching-ants flow along architecture connectors */
+@keyframes flow-dash {
+  to { stroke-dashoffset: -26; }
+}
+.flow-dash {
+  animation: flow-dash 1.1s linear infinite;
+}

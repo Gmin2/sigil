@@ -111,7 +111,10 @@ export default function SwapCard({ onAmount }: { onAmount?: (amountIn: number, a
           <div className="w-full border-t border-[#e7e4f6]" />
 
           <div className="mb-6 flex w-full flex-col items-center justify-center gap-4">
-            <div className="relative w-full overflow-hidden text-center">
+            <div
+              className="relative w-full cursor-text overflow-hidden text-center"
+              onClick={() => inputRef.current?.focus()}
+            >
               <input
                 ref={inputRef}
                 type="text"
@@ -119,9 +122,8 @@ export default function SwapCard({ onAmount }: { onAmount?: (amountIn: number, a
                 placeholder="0"
                 value={inputValue}
                 onChange={handleInputChange}
-                className={`inset-0 w-full cursor-pointer text-center text-[45px] font-semibold tracking-tight text-transparent caret-accent outline-none ${
-                  inputValue === "" ? "caret-transparent" : ""
-                }`}
+                autoFocus
+                className="inset-0 w-full cursor-text text-center text-[45px] font-semibold tracking-tight text-transparent caret-accent outline-none"
               />
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <AnimatePresence initial={false} mode="popLayout">

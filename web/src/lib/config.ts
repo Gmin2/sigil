@@ -14,6 +14,11 @@ export const CONTRACTS = {
 // Leather at its devnet network (localhost:3999).
 export const NETWORK = "devnet" as const;
 
+// where the landing CTAs send people: the app subdomain in production, the
+// local /app route in dev. override with VITE_APP_URL.
+export const APP_URL =
+  import.meta.env.VITE_APP_URL ?? (import.meta.env.PROD ? "https://app.sigiils.xyz" : "/app");
+
 export const RELAY = import.meta.env.VITE_RELAY ?? "http://localhost:8788";
 // use the stacks-API for browser reads: the node RPC (20443) returns 405 on the
 // CORS preflight, the API (3999) handles it.

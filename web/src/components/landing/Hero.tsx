@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import SealConveyor from "./SealConveyor";
 import { ArrowRight } from "../icons";
+import { APP_URL } from "../../lib/config";
 
 const ease = [0.44, 0, 0.56, 1] as const;
 
@@ -35,7 +36,7 @@ export default function Hero() {
 
         <motion.div {...reveal(0.25)} className="mt-8 flex items-center justify-center gap-3">
           <a
-            href="/app"
+            href={APP_URL}
             className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 font-sans text-[16px] font-medium text-white transition-colors hover:bg-accent-600"
           >
             Launch app

@@ -1,6 +1,8 @@
+import { APP_URL } from "../lib/config";
+
 const links = [
   { label: "How it works", href: "/#how" },
-  { label: "App", href: "/app" },
+  { label: "App", href: APP_URL },
   { label: "GitHub", href: "https://github.com" },
 ];
 

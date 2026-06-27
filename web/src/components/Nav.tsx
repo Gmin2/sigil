@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "./icons";
 import { AnimatedLogo } from "./AnimatedLogo";
+import { APP_URL } from "../lib/config";
 
 export type NavLink = { label: string; to: string; Icon?: (p: { className?: string }) => ReactNode };
 
@@ -46,7 +47,7 @@ export default function Nav({
                     {l.label}
                   </>
                 );
-                return l.to.includes("#") ? (
+                return l.to.includes("#") || l.to.startsWith("http") ? (
                   <a key={l.label} href={l.to} className={cls}>
                     {inner}
                   </a>
@@ -61,7 +62,7 @@ export default function Nav({
 
           {right ?? (
             <a
-              href="/app"
+              href={APP_URL}
               className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 font-sans text-[14px] font-medium text-white transition-colors hover:bg-accent-600"
             >
               Launch app

@@ -4,11 +4,12 @@ import Problem from "../components/landing/Problem";
 import HowSection from "../components/landing/HowSection";
 import Footer from "../components/Footer";
 import { BookOpen, Layers, Grid } from "../components/icons";
+import { APP_URL } from "../lib/config";
 
 const NAV_LINKS = [
   { label: "How it works", to: "/#how", Icon: BookOpen },
   { label: "Architecture", to: "/#architecture", Icon: Layers },
-  { label: "App", to: "/app", Icon: Grid },
+  { label: "App", to: APP_URL, Icon: Grid },
 ];
 
 export default function Landing() {

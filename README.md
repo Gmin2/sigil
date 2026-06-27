@@ -47,20 +47,20 @@ network is the production hardening of the auction, not built here.
 
 ## whats in here
 
-- contracts/ — the Clarity side. intent-verifier (create / fill / cancel with
+- contracts/: the Clarity side. intent-verifier (create / fill / cancel with
   commit-reveal escrow), the sip-010 trait, and a mock USDA output token. the
   input token is the real sBTC contract.
-- relay/ — an express service holding the intent mempool, the solver registry,
+- relay/: an express service holding the intent mempool, the solver registry,
   and the sealed-bid auction.
-- solver/ — an agent that decrypts intents sealed to its key, bids, and settles
+- solver/: an agent that decrypts intents sealed to its key, bids, and settles
   on-chain if it wins.
-- shared/ — the commit hashing primitive, the ECIES sealing, and the chain
+- shared/: the commit hashing primitive, the ECIES sealing, and the chain
   helpers, shared by the relay, solver, and frontend.
-- web/ — the Sigil app. wallet connect, build and sign an intent, watch the
+- web/: the Sigil app. wallet connect, build and sign an intent, watch the
   mempool fill live, click any intent to see its on-chain transactions.
-- scripts/ — a cli maker and an end to end driver for running without the
+- scripts/: a cli maker and an end to end driver for running without the
   browser.
-- tests/ — unit tests on simnet plus a rendezvous fuzz harness on the verifier.
+- tests/: unit tests on simnet plus a rendezvous fuzz harness on the verifier.
 
 ## running it
 
